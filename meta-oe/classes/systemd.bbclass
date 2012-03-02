@@ -9,7 +9,9 @@ if [ -n "$D" ]; then
     OPTS="--root=$D"
 fi
 
-systemctl $OPTS enable ${SYSTEMD_SERVICE}
+for serv in ${SYSTEMD_SERVICE};do
+    systemctl $OPTS enable ${SYSTEMD_SERVICE}
+done
 
 if [ -z "$D" ]; then
     systemctl start ${SYSTEMD_SERVICE}

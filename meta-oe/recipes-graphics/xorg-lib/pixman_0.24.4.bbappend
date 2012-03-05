@@ -3,9 +3,7 @@ FILESEXTRAPATHS_prepend := "${THISDIR}/${P}:"
 DEPENDS += "perl-native"
 BBCLASSEXTEND = "native"
 
-PRINC = "7"
-
-SRC_URI += " file://0008-Generic-C-implementation-of-pixman_blt-with-overlapp.patch"
+PRINC = "8"
 
 NEON = " --disable-arm-neon "
 NEON_armv7a = " "

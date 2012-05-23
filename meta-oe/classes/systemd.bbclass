@@ -9,9 +9,7 @@ if [ -n "$D" ]; then
     OPTS="--root=$D"
 fi
 
-for serv in ${SYSTEMD_SERVICE};do
-    systemctl $OPTS enable ${SYSTEMD_SERVICE}
-done
+systemctl $OPTS enable ${SYSTEMD_SERVICE}
 
 if [ -z "$D" ]; then
     systemctl start ${SYSTEMD_SERVICE}
@@ -47,7 +45,10 @@ def systemd_after_parse(d):
 						"\n\n%s: %s in SYSTEMD_PACKAGES does not match <existing-package>-systemd or ${PN} (deprecated)" % \
 						(bb_filename, pkg_systemd)
 				else:
-					bb.warn("%s: it is recommended to set SYSTEMD_PACKAGES as <existing-package>-systemd" % bb_filename)
+					# Only complain if recipe lacks native systemd support
+					native_systemd_support = d.getVar('NATIVE_SYSTEMD_SUPPORT', 1) or ""
+					if native_systemd_support == "":
+						bb.warn("%s: it is recommended to set SYSTEMD_PACKAGES as <existing-package>-systemd" % bb_filename)
 			else:
 				pkg_systemd_base = pkg_systemd.replace('-systemd', '')
 				if pkg_systemd_base not in packages:
@@ -59,8 +60,6 @@ def systemd_after_parse(d):
 		for pkg_systemd in systemd_pkgs.split():
 			service_pkg = 'SYSTEMD_SERVICE' + "_" + pkg_systemd
 			systemd_services = d.getVar(service_pkg, 1) or d.getVar('SYSTEMD_SERVICE', 1) or ""
-			if systemd_services == "":
-				raise bb.build.FuncFailed, "\n\n%s inherits systemd but doesn't set SYSTEMD_SERVICE / %s" % (bb_filename, service_pkg)
 
 	# prepend systemd-packages not already included
 	def systemd_create_package(pkg_systemd):
@@ -85,11 +84,11 @@ python __anonymous() {
 
 # automatically install all *.service and *.socket supplied in recipe's SRC_URI
 do_install_append() {
-    install -d ${D}${systemd_unitdir}/system
     for service in `find ${WORKDIR} -maxdepth 1 -name '*.service' -o -name '*.socket'` ; do
 	# ensure installing systemd-files only (e.g not avahi *.service)
 	if grep -q '\[Unit\]' $service ; then
-	        install -m 644 $service ${D}${systemd_unitdir}/system
+		install -d ${D}${systemd_unitdir}/system
+		install -m 644 $service ${D}${systemd_unitdir}/system
 	fi
     done
 }
@@ -204,7 +203,8 @@ python populate_packages_prepend () {
 	# run all modifications once when creating package
 	if os.path.exists('${D}'):
 		for pkg_systemd in d.getVar('SYSTEMD_PACKAGES', 1).split():
-			systemd_generate_package_scripts(pkg_systemd)
-			systemd_add_rdepends(pkg_systemd)
+			if d.getVar('SYSTEMD_SERVICE' + "_" + pkg_systemd, 1) and d.getVar('SYSTEMD_SERVICE' + "_" + pkg_systemd, 1).strip():
+				systemd_generate_package_scripts(pkg_systemd)
+				systemd_add_rdepends(pkg_systemd)
 		systemd_check_services()
 }
